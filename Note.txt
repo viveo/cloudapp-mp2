@@ -1,0 +1,15 @@
+***********
+Compile 
+***********
+**(if needed) rm -rf ./build/* ./TitleCount.jar
+1. (if needed) mkdir build
+2. export HADOOP_CLASSPATH=$JAVA_HOME/lib/tools.jar
+3. hadoop com.sun.tools.javac.Main TitleCount.java -d build
+4. jar -cvf TitleCount.jar -C build/ ./
+
+
+***********
+Run
+***********
+hadoop jar TitleCount.jar TitleCount -D stopwords=/mp2/misc/stopwords.txt -D delimiters=/mp2/misc/delimiters.txt /mp2/titles /mp2/A-output
+
