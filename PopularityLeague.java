@@ -86,16 +86,51 @@ public class PopularityLeague extends Configured implements Tool {
         }
     }
 
+    public static String readHDFSFile(String path, Configuration conf) throws IOException{
+        Path pt=new Path(path);
+        FileSystem fs = FileSystem.get(pt.toUri(), conf);
+        FSDataInputStream file = fs.open(pt);
+        BufferedReader buffIn=new BufferedReader(new InputStreamReader(file));
+
+        StringBuilder everything = new StringBuilder();
+        String line;
+        while( (line = buffIn.readLine()) != null) {
+            everything.append(line);
+            everything.append("\n");
+        }
+        return everything.toString();
+    }
+
+
     public static class LinkCountMap extends Mapper<Object, Text, IntWritable, IntWritable> {
+	// Limit the calculation to given league
+	List<String> linksInLeague;
+
+        @Override
+        protected void setup(Context context) throws IOException,InterruptedException {
+
+            Configuration conf = context.getConfiguration();
+
+            String leaguePath = conf.get("league");
+
+            this.linksInLeague = Arrays.asList(readHDFSFile(leaguePath, conf).split("\n"));
+        }
+
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
                 String curLine = value.toString();
                 String[] parts = curLine.split(":");
-                context.write(new IntWritable(Integer.parseInt(parts[0])), new IntWritable(0));
+                
+		if(linksInLeague.contains(parts[0].trim())) {
+			context.write(new IntWritable(Integer.parseInt(parts[0])), new IntWritable(0));
+		}
+
                 StringTokenizer tokenizer = new StringTokenizer(parts[1]);
 
                 while(tokenizer.hasMoreTokens()) {
                         String nextToken = tokenizer.nextToken();
-                        context.write(new IntWritable(Integer.parseInt(nextToken.trim().toLowerCase())), new IntWritable(1));
+			if(linksInLeague.contains(nextToken.trim())) {
+                 	       context.write(new IntWritable(Integer.parseInt(nextToken.trim().toLowerCase())), new IntWritable(1));
+			}
                 }
         }
     }
@@ -171,10 +206,20 @@ public class PopularityLeague extends Configured implements Tool {
                 }
 
                 for(Pair<Integer, Integer> item : countToWordMap) {
-                        IntWritable link = new IntWritable(item.second);
-                        IntWritable value = new IntWritable(item.first);
-                        context.write(link, value);
-                }
+			int count = 0;
+			IntWritable link = new IntWritable(item.second);
+			
+
+			for(Pair<Integer, Integer> others : countToWordMap) {
+				if(item.second != others.second) {
+					if(item.first > others.first) {
+						count += 1;
+					}
+				}
+			}
+			context.write(link, new IntWritable(count));
+		}
+
         }
     }
 }
